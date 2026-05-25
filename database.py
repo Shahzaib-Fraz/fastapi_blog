@@ -1,16 +1,17 @@
-from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine,AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-sqlalchemy_database_url="sqlite:///./blog.db"
 
-engine=create_engine(sqlalchemy_database_url,connect_args={"check_same_thread":False})
+sqlalchemy_database_url="sqlite+aiosqlite:///./blog.db"
 
-SessionLocal=sessionmaker(autocommit=False,autoflush=False,bind=engine)
+engine=create_async_engine(sqlalchemy_database_url,connect_args={"check_same_thread":False})
+
+AsyncSessionLocal=async_sessionmaker(class_=AsyncSession, bind=engine,expire_on_commit=False)  # expire_on_commit=False is used to prevent the session from expiring after commit, which allows us to access the data after commit without having to refresh the session. This is useful in async context where we might want to access the data after commit without having to refresh the session.
 
 Base = declarative_base()
 
-def get_db():
-    with SessionLocal() as db:
-        yield db
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
 
