@@ -37,7 +37,7 @@ class PostBase(BaseModel):
     # author: str =Field(min_length=1, max_length=100)
 
 class PostCreate(PostBase):
-    user_id: int
+    pass
 
 class PostUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=100)

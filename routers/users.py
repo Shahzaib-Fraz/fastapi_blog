@@ -13,7 +13,7 @@ from config import settings
 from datetime import timedelta
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
-from auth import hash_password, verify_password, create_access_token, verify_access_token, oauth2_scheme
+from auth import hash_password, verify_password, create_access_token, Current_user
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -57,25 +57,15 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: 
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/me", response_model=UserPrivate)
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Annotated[AsyncSession, Depends(get_db)]):
-    user_id = verify_access_token(token)
-    if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token",headers={"WWW-Authenticate": "Bearer"})
-    
-    try:
-        user_id_int = int(user_id)
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token",headers={"WWW-Authenticate": "Bearer"})
-    result= await db.execute(select(models.User).where(models.User.id==int(user_id_int)))
-    user=result.scalars().first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    
-    return user
+async def get_current_user(current_user: Current_user):
+    return current_user
 
 
 @router.patch("/{user_id}",response_model=UserPrivate)
-async def update_user(user_id:int, user_data: UserUpdate, db: Annotated[AsyncSession, Depends(get_db)]):
+async def update_user(user_id:int, user_data: UserUpdate, current_user: Current_user, db: Annotated[AsyncSession, Depends(get_db)]):
+    if user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this user")
+    
     result= await db.execute(select(models.User).where(models.User.id==user_id))
     user=result.scalars().first()
     if not user:
@@ -123,7 +113,10 @@ async def get_user_posts(user_id: int, db: Annotated[AsyncSession, Depends(get_d
     return posts
 
 @router.delete("/{user_id}",status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(user_id: int, db: Annotated[AsyncSession, Depends(get_db)]):
+async def delete_user(user_id: int, current_user: Current_user, db: Annotated[AsyncSession, Depends(get_db)]):
+    if user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this user")
+
     result=await db.execute(select(models.User).where(models.User.id==user_id))
     user=result.scalars().first()
 
