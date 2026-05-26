@@ -8,7 +8,7 @@ class UserBase(BaseModel):
     # password : str =Field(min_length=1, max_length=100)
 
 class UserCreate(UserBase):
-    pass
+    password: str =Field(min_length=8)
 
 class UserUpdate(BaseModel):
     username: str | None = Field(default=None, min_length=1, max_length=100)
@@ -16,12 +16,20 @@ class UserUpdate(BaseModel):
     image_file: str | None = Field(default=None, max_length=200)
     # password: str | None = Field(default=None, min_length=1, max_length=100)
 
-class UserResponse(UserBase):
+class Token(BaseModel):
+
+    access_token: str
+    token_type: str
+
+class UserPublic(BaseModel):
     id: int
+    username: str
     image_path: str
     image_file: str | None
     model_config = ConfigDict(from_attributes=True)   # used to convert from dict to model, we can also use from_orm = True if we are using an ORM like SQLAlchemy
 
+class UserPrivate(UserPublic):
+    email: EmailStr
 
 class PostBase(BaseModel):
     title : str =Field(min_length=1, max_length=100)
@@ -42,5 +50,5 @@ class PostResponse(PostBase):
     user_id: int
     model_config = ConfigDict(from_attributes=True)   # used to convert from dict to model, we can also use from_orm = True if we are using an ORM like SQLAlchemy
     date_posted : datetime
-    author: UserResponse
+    author: UserPublic
     
