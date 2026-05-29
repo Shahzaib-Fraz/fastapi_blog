@@ -9,5 +9,6 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
 
     max_upload_size_bytes: int = 5 * 1024 * 1024  # 5 MB
-
+    posts_per_page : int = 10
+ 
 settings=Settings()  #loaded from .env file, we can also override the values by passing them as arguments like Settings(secret_key

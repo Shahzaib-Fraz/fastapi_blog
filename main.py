@@ -6,14 +6,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from typing import Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select,func
 from sqlalchemy.orm import selectinload
 from database import get_db,Base,engine
 import models
 from contextlib import asynccontextmanager
 from fastapi.exception_handlers import http_exception_handler,request_validation_exception_handler
 from routers import users,posts
-
+from config import settings
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -37,12 +37,15 @@ app.include_router(posts.router)
 @app.get("/", include_in_schema=False, name="home")
 @app.get("/posts", include_in_schema=False, name="posts")
 async def home(request: Request,db : Annotated[AsyncSession, Depends(get_db)]):
-    result= await db.execute(select(models.Post).options(selectinload(models.Post.author)).order_by(models.Post.date_posted.desc()))
+    count_result=await db.execute(select(func.count(models.Post.id)))
+    total=count_result.scalar() or 0
+    result=await db.execute(select(models.Post).options(selectinload(models.Post.author)).order_by(models.Post.date_posted.desc()).limit(settings.posts_per_page))
     posts=result.scalars().all()
+    has_more = len(posts) < total
     return templates.TemplateResponse(
         request,
         "home.html",
-        {"posts": posts, "title": "Home"},
+        {"posts": posts, "title": "Home", "limit": settings.posts_per_page, "has_more": has_more},
     )
 
 
@@ -69,15 +72,21 @@ async def user_posts_page(request: Request, user_id: int, db: Annotated[AsyncSes
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+    count_result=await db.execute(select(func.count(models.Post.id)).where(models.Post.user_id==user_id))
+    total=count_result.scalar() or 0
     result=await db.execute(select(models.Post).options(selectinload(models.Post.author)).where(models.Post.user_id==user_id))
     posts=result.scalars().all()
+    has_more = len(posts) < total
+
     return templates.TemplateResponse(
         request,
         "user_posts.html",
 
         {"user": user,
          "posts": posts, 
-         "title": f"{user.username}'s Posts"},
+         "title": f"{user.username}'s Posts",
+         "limit": settings.posts_per_page,
+         "has_more": has_more},
     )
 
 @app.get("/login", include_in_schema=False)
